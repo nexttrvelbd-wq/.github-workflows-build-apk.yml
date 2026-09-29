@@ -14,11 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find Android project
-        run: |
-          echo "Searching for Gradle project..."
-          find . -name "settings.gradle" -o -name "settings.gradle.kts"
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -26,26 +21,37 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
 
-      - name: Accept licenses
-        run: yes | sdkmanager --licenses || true
+          yes | sdkmanager --licenses || true
+
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
       - name: Find Gradle wrapper
         run: |
           GRADLEW=$(find . -name "gradlew" -type f | head -n 1)
+
           if [ -z "$GRADLEW" ]; then
-            echo "gradlew not found"
+            echo "ERROR: gradlew not found"
             exit 1
           fi
+
           chmod +x "$GRADLEW"
-          echo "GRADLEW=$GRADLEW" >> $GITHUB_ENV
+          echo "GRADLEW=$GRADLEW" >> "$GITHUB_ENV"
+
+          echo "Found Gradle wrapper: $GRADLEW"
 
       - name: Build APK
         run: |
           DIR=$(dirname "$GRADLEW")
           cd "$DIR"
-          ./gradlew assembleDebug
+
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
